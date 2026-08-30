@@ -1,5 +1,6 @@
 const express = require('express');
 const { Pool } = require('pg');
+const { formatVisitMessage } = require('./utils');
 
 const app = express();
 app.use(express.json());
@@ -14,7 +15,6 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'appdb',
 });
 
-// Create a simple table on startup (for persistence testing)
 async function initDb() {
   try {
     await pool.query(`
@@ -31,12 +31,10 @@ async function initDb() {
 }
 initDb();
 
-// Root route
 app.get('/', (req, res) => {
   res.json({ message: 'Task 3 - Node.js + Express + PostgreSQL + Docker is running!' });
 });
 
-// Health check endpoint - used by Docker HEALTHCHECK and docker-compose
 app.get('/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
@@ -46,10 +44,9 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Add a visit record (to prove data persistence across container restarts)
 app.post('/visits', async (req, res) => {
   try {
-    const message = (req.body && req.body.message) || 'hello from task3';
+    const message = formatVisitMessage(req.body && req.body.message);
     const result = await pool.query(
       'INSERT INTO visits (message) VALUES ($1) RETURNING *',
       [message]
@@ -60,7 +57,6 @@ app.post('/visits', async (req, res) => {
   }
 });
 
-// List all visits (to check data survived a restart)
 app.get('/visits', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM visits ORDER BY id DESC');
